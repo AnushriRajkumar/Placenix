@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Placenix — Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="chart.min.js"></script>
+  <style>
+    body { background:#000; color:#fff; font-family:'Segoe UI',sans-serif; margin:0; padding:20px; }
+    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .logo-circle {
+      width:50px; height:50px; border-radius:50%;
+      background:linear-gradient(135deg,#ff4500,#ffa500);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:bold; font-size:20px; color:#fff;
+      box-shadow:0 0 15px rgba(255,100,0,0.6);
+    }
+    .dashboard-grid { display:grid; grid-template-columns:2fr 1fr; gap:20px; }
+    .glass-card {
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:16px; padding:20px;
+      box-shadow:0 0 20px rgba(255,140,0,0.2);
+    }
+    textarea, input[type="file"] { width:100%; padding:8px; margin:8px 0; border-radius:8px; border:none; background:#111; color:#fff; }
+    button {
+      background:linear-gradient(90deg,#ff4500,#ffa500);
+      border:none; padding:10px 16px; border-radius:8px;
+      font-weight:bold; cursor:pointer; color:#fff;
+      transition:0.2s;
+    }
+    button:hover { opacity:0.85; transform:scale(1.05); }
+    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+    th, td { padding:8px; border-bottom:1px solid rgba(255,160,0,0.2); }
+    th { color:#ffa500; text-align:left; }
+    .resume-view { background:#0b0b0b; border-radius:8px; padding:12px; font-size:13px; white-space:pre-wrap; max-height:200px; overflow:auto; }
+    .highlight { background:rgba(255,165,0,0.2); border-radius:3px; padding:0 2px; }
+    .chat-log { display:flex; flex-direction:column; gap:8px; background:#111; border-radius:10px; padding:10px; max-height:220px; overflow-y:auto; font-size:14px; }
+    .msg { max-width:80%; padding:8px 12px; border-radius:12px; }
+    .user-msg { align-self:flex-end; background:linear-gradient(90deg,#ff8c00,#ff4500); color:#000; }
+    .bot-msg { align-self:flex-start; background:#222; border:1px solid rgba(255,255,255,0.1); color:#eee; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="logo-circle">P</div>
+      <div>
+        <h2 style="margin:0;color:#ff4500;">Placenix</h2>
+        <p style="margin:0;font-size:12px;color:#aaa;">PhoenixMentor — Career Guidance</p>
+      </div>
+    </div>
+    <div style="font-size:12px;">Signed in as <span id="user-name">Candidate</span></div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- LEFT: Resume Analysis -->
+    <div class="glass-card">
+      <h2>📄 Resume Analysis</h2>
+      <textarea id="job-desc">Enter job description</textarea>
+      <input type="file" id="resume-file" accept="application/pdf">
+      <button onclick="uploadResume()">Upload & Analyze</button>
+
+      <!-- Donut Chart -->
+      <div style="position:relative;width:180px;height:180px;margin:20px auto;">
+        <canvas id="scoreDonut"></canvas>
+        <div id="score-text" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;font-weight:bold;color:#fff;">0%</div>
+      </div>
+
+      <h3>Entities</h3>
+      <table id="resume-table"><thead><tr><th>Entity</th><th>Word</th></tr></thead><tbody></tbody></table>
+
+      <h3>Potential Roles</h3>
+      <ul id="roles-list" style="padding-left:18px;"></ul>
+
+      <h3>Resume (highlighted)</h3>
+      <div id="resume-view" class="resume-view">Upload and analyze a resume to view content here.</div>
+
+      <h3>📊 Progress Tracking</h3>
+      <canvas id="progressChart"></canvas>
+    </div>
+
+    <!-- RIGHT: Chatbot -->
+    <div class="glass-card">
+      <h2>🤖 PhoenixMentor</h2>
+      <div id="chat-log" class="chat-log">
+        <div class="bot-msg msg">🔥 PhoenixMentor here. Upload a resume or ask me for career tips!</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <input id="chat-input" placeholder="Ask PhoenixMentor something..." style="flex:1;padding:8px;border-radius:8px;border:none;background:#111;color:#fff;">
+        <button onclick="sendChat()">Ask</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* Donut Chart */
+let scoreDonut = new Chart(document.getElementById("scoreDonut"), {
+  type: 'doughnut',
+  data: { datasets: [{ data:[0,100], backgroundColor:["#ff8c00","#222"], borderWidth:0 }] },
+  options: { cutout:"70%", plugins:{legend:{display:false}}, animation:{duration:1200} }
+});
+
+/* Progress Chart */
+let progressChart = new Chart(document.getElementById("progressChart").getContext("2d"), {
+  type: 'line',
+  data: { labels:[], datasets:[{label:"Readiness %", data:[], borderColor:"#ff8c00", backgroundColor:"rgba(255,140,0,0.2)", tension:0.3}] },
+  options:{scales:{x:{ticks:{color:"#fff"}},y:{ticks:{color:"#fff"},min:0,max:100}},plugins:{legend:{labels:{color:"#fff"}}}}
+});
+
+/* Helpers */
+function setSimilarity(score){
+  const pct=Math.round(score*1000)/10;
+  scoreDonut.data.datasets[0].data=[pct,100-pct]; scoreDonut.update();
+  document.getElementById("score-text").textContent=pct+"%";
+}
+function renderStructured(list){
+  const tbody=document.querySelector("#resume-table tbody"); tbody.innerHTML="";
+  list.forEach(it=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${it.entity_group}</td><td>${it.word}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderResumeView(text,structured){
+  let html=text.replace(/\n/g,"<br>");
+  const keywords=Array.from(new Set(structured.map(s=>s.word))).filter(Boolean).sort((a,b)=>b.length-a.length);
+  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  keywords.forEach(k=>{
+    const re=new RegExp(`\\b(${esc(k)})\\b`,'gi');
+    html=html.replace(re,'<span class="highlight">$1</span>');
+  });
+  document.getElementById("resume-view").innerHTML=html||"No text extracted";
+}
+
+/* Upload Resume */
+async function uploadResume(){
+  const file=document.getElementById("resume-file").files[0];
+  const jd=document.getElementById("job-desc").value;
+  const user=localStorage.getItem("placenixUser")||"default";
+  if(!file){alert("Select a PDF first");return;}
+  try{
+    const fd=new FormData();
+    fd.append("file",file);
+    fd.append("job_description",jd);
+    fd.append("user_id",user);
+    const res=await fetch("http://127.0.0.1:8001/upload_resume",{method:"POST",body:fd});
+    if(!res.ok){throw new Error(await res.text());}
+    const j=await res.json();
+    renderStructured(j.structured_resume||[]);
+    setSimilarity(j.similarity_score||0);
+    document.getElementById("roles-list").innerHTML="";
+    (j.potential_promotions||[]).forEach(r=>{
+      const li=document.createElement("li"); li.textContent=r; document.getElementById("roles-list").appendChild(li);
+    });
+    renderResumeView(j.resume_text||"",j.structured_resume||[]);
+    addBotMessage(j.tips||"No tips available");
+    loadProgress(user);
+  }catch(err){console.error(err);alert("Upload failed: "+err.message);}
+}
+
+/* Chatbot */
+function addUserMessage(msg){ const log=document.getElementById("chat-log"); const div=document.createElement("div"); div.className="msg user-msg"; div.textContent=msg; log.appendChild(div); log.scrollTop=log.scrollHeight; }
+function addBotMessage(msg){ const log=document.getElementById("chat-log"); const div=document.createElement("div"); div.className="msg bot-msg"; div.textContent=msg; log.appendChild(div); log.scrollTop=log.scrollHeight; }
+async function sendChat(){
+  const q=document.getElementById("chat-input").value.trim();
+  if(!q)return;
+  addUserMessage(q);
+  addBotMessage("PhoenixMentor is thinking...");
+  document.getElementById("chat-input").value="";
+  try{
+    const res=await fetch("http://127.0.0.1:8001/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q})});
+    const data=await res.json();
+    const botMsgs=document.querySelectorAll(".bot-msg"); botMsgs[botMsgs.length-1].textContent=data.response||"No response";
+  }catch(e){const botMsgs=document.querySelectorAll(".bot-msg"); botMsgs[botMsgs.length-1].textContent="❌ PhoenixMentor unavailable.";}
+}
+
+/* Load Progress */
+async function loadProgress(user_id){
+  try{
+    const res=await fetch(`http://127.0.0.1:8001/progress?user_id=${user_id}`);
+    if(!res.ok)return;
+    const payload=await res.json();
+    const labels=payload.series.map(s=>s.ts);
+    const data=payload.series.map(s=>Math.round(s.score*1000)/10);
+    progressChart.data.labels=labels;
+    progressChart.data.datasets[0].data=data;
+    progressChart.update();
+  }catch(e){console.warn("progress fetch failed",e);}
+}
+
+/* Init */
+document.addEventListener("DOMContentLoaded",()=>{
+  const user=localStorage.getItem("placenixUser")||"Candidate";
+  document.getElementById("user-name").textContent=user;
+  loadProgress(user);
+});
+</script>
+</body>
+</html>

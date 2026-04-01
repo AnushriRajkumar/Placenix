@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Placenix — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin:0; padding:0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top left, #1a1a1a, #000);
+      color:#fff; display:flex; align-items:center; justify-content:center;
+      height:100vh;
+    }
+    .login-container {
+      background: rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:20px;
+      padding:40px 30px;
+      width:320px; text-align:center;
+      box-shadow: 0 0 25px rgba(255,140,0,0.3);
+      backdrop-filter: blur(12px);
+    }
+    .logo-circle {
+      width:70px; height:70px; border-radius:50%;
+      background:linear-gradient(135deg,#ff4500,#ffa500);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:bold; font-size:26px; color:#fff;
+      margin:0 auto 15px auto;
+      box-shadow:0 0 25px rgba(255,120,0,0.6);
+    }
+    h1 { margin:10px 0 20px; color:#ff4500; font-size:22px; }
+    input {
+      width:100%; padding:12px; margin:10px 0;
+      border-radius:8px; border:none;
+      background:#111; color:#fff;
+    }
+    button {
+      width:100%; padding:12px;
+      border:none; border-radius:8px;
+      background:linear-gradient(90deg,#ff4500,#ffa500);
+      font-weight:bold; color:#fff; cursor:pointer;
+      margin-top:15px; transition:0.2s;
+    }
+    button:hover { opacity:0.85; transform:scale(1.05); }
+    .tagline { margin-top:15px; font-size:13px; color:#ccc; }
+    .footer { margin-top:25px; font-size:11px; color:#777; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo-circle">P</div>
+    <h1>Placenix</h1>
+    <form onsubmit="event.preventDefault(); loginUser();">
+      <input type="email" id="email" placeholder="Enter Email" required>
+      <input type="password" id="password" placeholder="Enter Password" required>
+      <button type="submit">Login</button>
+    </form>
+    <div class="tagline">🔥 Rise like a Phoenix into your Career</div>
+    <div class="footer">© 2025 Placenix</div>
+  </div>
+
+  <script>
+    function loginUser(){
+      const email = document.getElementById("email").value;
+      if(!email){ alert("Enter an email"); return; }
+      localStorage.setItem("placenixUser", email.toLowerCase());
+      window.location.href = "dashboard.html";
+    }
+  </script>
+</body>
+</html>
